@@ -604,7 +604,19 @@ pub struct ProcessControlBlock {
     pid: Pid,
     /// 当前进程的线程组id（这个值在同一个线程组内永远不变）
     tgid: Pid,
+    /// Ngid保留字段
+    ngid: Pid,
 
+    ///进程默认权限掩码
+    umask: usize,
+
+    ///跟踪进程PID
+    tracer_pid: Pid,
+
+    uid: usize,
+
+    gid: usize,
+    
     basic: RwLock<ProcessBasicInfo>,
     /// 当前进程的自旋锁持有计数
     preempt_count: AtomicUsize,
@@ -672,8 +684,35 @@ impl ProcessControlBlock {
         return Self::do_create_pcb(name, kstack, true);
     }
 
+    ///返回进程的umask 依赖于SYS_UMASK
+    pub fn umask(&self) ->usize {
+	return self.umask;
+    }
+
+    pub fn uid(&self) -> usize {
+	return self.uid;
+    }
+
+    pub fn gid(&self) -> usize {
+	return self.gid;
+    }
+    ///返回Ngid保留字段 一般为0
+    pub fn ngid(&self) -> Pid {
+	return self.ngid;
+    }
+    ///返回追踪进程pid !ptrace完成后需要修改 目前默认返回0!
+    pub fn tracer_pid(&self) -> Pid {
+	return self.tracer_pid;
+    }
+
     #[inline(never)]
     fn do_create_pcb(name: String, kstack: KernelStack, is_idle: bool) -> Arc<Self> {
+
+	let tracer_pid = Pid(0);
+	//uid和gid默认为0
+	let (uid,gid) = (0,0);
+	// umask默认为0022
+	let umask: usize  = Syscall::umask(0022).unwrap();
         let (pid, ppid, cwd) = if is_idle {
             (Pid(0), Pid(0), "/".to_string())
         } else {
@@ -681,6 +720,7 @@ impl ProcessControlBlock {
             let cwd = ProcessManager::current_pcb().basic().cwd();
             (Self::generate_pid(), ppid, cwd)
         };
+	let ngid = Pid(0);
 
         let basic_info = ProcessBasicInfo::new(Pid(0), ppid, name, cwd, None);
         let preempt_count = AtomicUsize::new(0);
@@ -695,6 +735,11 @@ impl ProcessControlBlock {
 
         let pcb = Self {
             pid,
+	    uid,
+	    gid,
+	    ngid,
+	    umask,
+	    tracer_pid,
             tgid: pid,
             basic: basic_info,
             preempt_count,

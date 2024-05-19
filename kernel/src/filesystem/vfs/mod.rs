@@ -843,6 +843,14 @@ impl Metadata {
             raw_dev: DeviceNumber::default(),
         }
     }
+
+    pub fn uid(&self) -> usize {
+	return self.uid;
+    }
+
+    pub fn gid(&self) -> usize {
+	return self.gid;
+    }
 }
 pub struct FileSystemMaker {
     function: &'static FileSystemNewFunction,
