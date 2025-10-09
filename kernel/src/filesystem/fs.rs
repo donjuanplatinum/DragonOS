@@ -21,14 +21,14 @@ impl PathContext {
 
 #[derive(Debug)]
 pub struct FsStruct {
-    umask: ModeType, //文件权限掩码
+    umask: RwLock<ModeType>, // 文件权限掩码
     path_context: RwLock<PathContext>,
 }
 
 impl Clone for FsStruct {
     fn clone(&self) -> Self {
         Self {
-            umask: self.umask,
+            umask: RwLock::new(*self.umask.read()),
             path_context: RwLock::new(self.path_context.read().clone()),
         }
     }
@@ -43,9 +43,19 @@ impl Default for FsStruct {
 impl FsStruct {
     pub fn new() -> Self {
         Self {
-            umask: ModeType::S_IWUGO,
+            umask: RwLock::new(ModeType::S_IWUGO),
             path_context: RwLock::new(PathContext::new()),
         }
+    }
+
+    /// 获取当前进程的 umask
+    pub fn get_umask(&self) -> ModeType {
+        *self.umask.read()
+    }
+
+    /// 设置当前进程的 umask
+    pub fn set_umask(&self, new_mask: ModeType) {
+        *self.umask.write() = new_mask;
     }
 
     pub fn set_root(&self, inode: Arc<dyn IndexNode>) {

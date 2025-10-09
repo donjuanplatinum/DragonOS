@@ -58,9 +58,19 @@ impl Syscall {
         return Ok(0);
     }
 
-    pub fn umask(_mask: u32) -> Result<usize, SystemError> {
-        warn!("SYS_UMASK has not yet been implemented\n");
-        return Ok(0o777);
+    pub fn umask(mask: u32) -> Result<usize, SystemError> {
+        use crate::{
+            filesystem::vfs::syscall::ModeType,
+            process::ProcessManager,
+        };
+
+        // Only permission bits [0o777] are meaningful for umask
+        let new_mask = ModeType::from_bits_truncate(mask).intersection(ModeType::S_IRWXUGO);
+
+        let fs = ProcessManager::current_pcb().fs_struct();
+        let old = fs.get_umask().intersection(ModeType::S_IRWXUGO);
+        fs.set_umask(new_mask);
+        Ok(old.bits() as usize)
     }
 
     /// ## 将随机字节填入buf
